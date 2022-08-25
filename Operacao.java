@@ -11,13 +11,12 @@ public class Operacao {
 	private double valorTotal;		// VALOR TOTAL DA OPERAÇAO
 	
 	// CONSTRUTOR: OPERAÇÃO PARA CLIENTES
-	public Operacao(String timestamp, String tipoOp, char ativo, int qtde, double valorAtivo) {
+	public Operacao(String timestamp, String tipoOp, char ativo, int qtde, double valorTotal) {
 		
 		this.timestamp = timestamp;
 		this.tipoOperacao = tipoOp;
 		this.ativo = ativo;
-		this.valorAtivo = valorAtivo;
-		this.valorTotal = qtde*valorAtivo;
+		this.valorTotal = valorTotal;
 	}
 
 	// CONSTRUTOR: OPERAÇÕES PARA CORRETORA

@@ -5,7 +5,7 @@ import java.util.concurrent.Semaphore;
 
 public class Corretora implements Runnable {
 
-	private int totalOperacoes = 50;										// total de operações na corretora
+	private int totalOperacoes = 1000;										// total de operações na corretora
 	private int n = 0;													    // controla o fluxo das açoes (indices)
 	private boolean corretoraOn;											// flag que avisa que corretora está trabalhando
 	
@@ -65,6 +65,10 @@ public class Corretora implements Runnable {
 			for (int i=0; i < Cliente.getListaClientes().size(); i++) {
 				new Thread(Cliente.getListaClientes().get(i)).isInterrupted();
 			}
+			
+			// RECONCILIAÇÃO DE DADOS
+			reconciliaçãoDeDados();
+			Cliente.extratoClientes();
 			
 			// CRIA GRAFICOS
 			for(int i=0; i < meusAtivos.size(); i++) {
@@ -129,20 +133,32 @@ public class Corretora implements Runnable {
 		String timestamp = meusAtivos.get(a).getTimestamp().get(n-1);
 		double valorTotal = qtdeAtivos * meusAtivos.get(a).getClose().get(n-1);
 
-		if(Cliente.getListaClientes().get(cliente-1).getCC().getSaldo() > valorTotal) {
-			
+		if(Cliente.getListaClientes().get(cliente-1).getCC().getSaldo() > valorTotal && tipoOp == "COMPRA") {
+
 			if(caixaGeral.size() < totalOperacoes) {														// verifica se corretora ainda está aberta
-				
+
 				// FAZ NOVA OPERAÇÃO NO CAIXA DA CORRETORA
 				caixaGeral.add(new Operacao(timestamp, tipoOp, ativo, valorTotal, cliente));
 
 				// FAZ NOVA OPERAÇÃO PARA CLIENTE
 				Cliente.getListaClientes().get(cliente-1).getCC().novaMovimentacao
-								(timestamp, tipoOp, ativo, qtdeAtivos, valorTotal);
+				(timestamp, tipoOp, ativo, qtdeAtivos, valorTotal);
 
-				System.out.println("CLIENTE "+cliente +": "+ tipoOp +" ATIVO "+ ativo);		
+			//	System.out.println("CLIENTE "+cliente +": "+ tipoOp +" ATIVO "+ ativo);		
 			}
+		} else {
+		
+		if(caixaGeral.size() < totalOperacoes) {	
+			// FAZ NOVA OPERAÇÃO NO CAIXA DA CORRETORA
+			caixaGeral.add(new Operacao(timestamp, tipoOp, ativo, valorTotal, cliente));
+
+			// FAZ NOVA OPERAÇÃO PARA CLIENTE
+			Cliente.getListaClientes().get(cliente-1).getCC().novaMovimentacao
+			(timestamp, tipoOp, ativo, qtdeAtivos, valorTotal);
+
+		//	System.out.println("CLIENTE "+cliente +": "+ tipoOp +" ATIVO "+ ativo);	
 		}
+	}
 		
 		caixas.release();
 	}
@@ -163,26 +179,31 @@ public class Corretora implements Runnable {
 	}
 	
 	public void reconciliaçãoDeDados() {
-		
-		int count = 0;
-		for(int i = 0; i < totalOperacoes; i++) {
-
-			int idCliente = caixaGeral.get(i).getCliente();
-			ContaCorrente ccCliente = Cliente.getListaClientes().get(idCliente-1).getCC();
-
-			for(int j=0; j<ccCliente.getMovimentacao().size(); j++) {
-				if(caixaGeral.get(i).getAtivo() == ccCliente.getMovimentacao().get(j).getAtivo()) {
+				
+		for(int cliente = 0; cliente < Cliente.getListaClientes().size(); cliente++) {
+			
+			int nCompra = 0, nVenda = 0;
+			double totalCompra = 0, totalVenda = 0;
+			
+			for(int i = 0; i < caixaGeral.size(); i++) {
+				
+				if(caixaGeral.get(i).getCliente() == cliente+1) {
 					
-					if(caixaGeral.get(i).getTimestamp() == ccCliente.getMovimentacao().get(j).getTimestamp()) {
-
-							if(caixaGeral.get(i).getValorTotal() == ccCliente.getMovimentacao().get(j).getValorTotal()) {
-								count++;
-							}
-						} 
-					} 
-				}	
+					if(caixaGeral.get(i).getTipoOperacao() == "COMPRA") {
+						totalCompra += caixaGeral.get(i).getValorTotal();
+						nCompra++;
+						
+					} else if (caixaGeral.get(i).getTipoOperacao() == "VENDA"){
+						totalVenda += caixaGeral.get(i).getValorTotal();
+						nVenda++;
+					}
+				}
 			}
-		
-		System.out.println("OK PARA "+count+" MOVIMENTACOES\nTOTAL DE MOVIMENTACOES: "+totalOperacoes);
+			
+			System.out.println("CORRETORA: O cliente "+ (cliente+1) + " realizou "+nCompra+" compras de ativos no valor de "+totalCompra+ " reais. \n"
+					+ "e "+nVenda+ " vendas de ativos no valor de "+totalVenda+" reais");
+		}
+
+			
 	}
 }

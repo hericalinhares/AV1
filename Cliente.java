@@ -22,14 +22,14 @@ public class Cliente implements Runnable {
 		this.id = listaClientes.size();					// Identificação do cliente (somente didatico)		
 		
 		minhaConta = new ContaCorrente
-				(saldoLimite, minhaCorretora);			// Cria nova conta corrente para cliente
+				(id, saldoLimite, minhaCorretora);			// Cria nova conta corrente para cliente
 	}
 	
 	// -------------------------------------------------//
 	@Override
 	public void run() {
 		// TODO Auto-generated method stub
-		System.out.println("THREAD CLIENTE " + id + " INICIADA \n SALDO DO CLIENTE " + id + " É: " + saldoLimite + " REAIS \n");
+	//	System.out.println("THREAD CLIENTE " + id + " INICIADA \n SALDO DO CLIENTE " + id + " É: " + saldoLimite + " REAIS \n");
 		
 		// CLIENTES ENTRAM NA CORRETORA EM HORARIOS DIFERENTES
 		int time;
@@ -53,9 +53,9 @@ public class Cliente implements Runnable {
 				e.printStackTrace();
 			}
 		}
-
-		System.out.println("\n\nCLIENTE " + id + " SAIU DA CORRETORA \nSALDO INICIAL: R$ " + saldoLimite + 
-				"\nSALDO FINAL: R$"+ minhaConta.getSaldoFinal() + "\nTOTAL OPERACOES: " + minhaConta.totalMovimentacoes());
+		
+	//	System.out.println("\n\nCLIENTE " + id + " SAIU DA CORRETORA \nSALDO INICIAL: R$ " + saldoLimite + 
+			//	"\nSALDO FINAL: R$"+ minhaConta.getSaldoFinal() + "\nTOTAL OPERACOES: " + minhaConta.totalMovimentacoes());
 	}
 	
 	// -------------------------------------------------//
@@ -115,66 +115,58 @@ public class Cliente implements Runnable {
 			viabilidade[i] = v1 + v2 + v3 + v4;
 		}
 		
-		String[] acao = defineAcao(viabilidade);
-		
 		for(int i = 0; i < viabilidade.length; i++) {
 			
-			if(acao[i] == "VENDA") {
+			if(defineAcao(viabilidade[i],i) == "VENDA") {
 				
 				int qtde = minhaConta.getQtdeAcoes()[i];
 				realizaSolicitacao("VENDA", ativosAtuais.get(i).getId(), qtde, 5);
-				
-			} else if (acao[i] == "COMPRA") {
+			}
+			
+			if (defineAcao(viabilidade[i],i) == "COMPRA") {
 				
 				int qtde = (int) ((minhaConta.getSaldo()*0.6) / (ativosAtuais.get(i).getClose().get(ind)));
 				realizaSolicitacao("COMPRA", ativosAtuais.get(i).getId(), qtde, 5);
-				
-			}
+			} 
 		}
-		
-
 	}
 	
-	private String[] defineAcao(int[] viabilidade) {
+	private String defineAcao(int viabilidade, int i) {
 		
-		String[] acao = new String[viabilidade.length];
-		
+		String acao = null;
 		// SE ATIVO TIVER VIABILIDADE ALTA -> COMPRA
 		// SE ATIVO TIVER VIABILIDADE BAIXA -> VENDE
-		
-		String ultimaOperacao;
-		int id;
-		
-		if(minhaConta.totalMovimentacoes() > 0) {
-			ultimaOperacao = minhaConta.getUltimaOperacao().getTipoOperacao();
-			id = identificaAtivo(minhaConta.getUltimaOperacao().getAtivo());
-		} else {
-			ultimaOperacao = "n/a";
-			id = viabilidade.length + 1;
-		}
-		
-		for (int i = 0; i < viabilidade.length; i++) {
-			
-			if(i == id) {
+	
+		// SE JÁ HOUVE MOVIMENTAÇÃO NA CONTA
+			if(minhaConta.getMovimentacao().size()>0) {
 				
-				if(ultimaOperacao == "COMPRA" && viabilidade[i] < 4 && minhaConta.getQtdeAcoes()[i]>0) {
-					acao[i] = "VENDA";
-				} else if (ultimaOperacao == "VENDA" && viabilidade[i] >= 4) {
-					acao[i] = "COMPRA";
+				// ULTIMO ATIVO MOVIMENTADO
+				if(identificaAtivo(minhaConta.getUltimaOperacao().getAtivo()) == i){
+					
+					if(minhaConta.getUltimaOperacao().getTipoOperacao() == "COMPRA") {
+						if(viabilidade < 4 && minhaConta.getQtdeAcoes()[i]>0) {
+							acao = "VENDA";
+						}
+					} else {
+						if(viabilidade >= 4) {
+							acao = "COMPRA";
+						} else { acao = "N/A"; }
+					}
+				
+				} else {			// DEMAIS ATIVOS
+					if(viabilidade <= 4 && minhaConta.getQtdeAcoes()[i]>0) {
+						acao = "VENDA";
+					} else if(viabilidade > 4) {
+						acao = "COMPRA";
+					} else { acao = "N/A"; }
 				}
-				
-			} else {
-				
-				if(viabilidade[i] < 4 && minhaConta.getQtdeAcoes()[i]>0) {
-					acao[i] = "VENDA";
-				} else if (viabilidade[i] >= 4) {
-					acao[i] = "COMPRA";
-				} else {
-					acao[i] = "SEM ACAO";
-				}	
-			}		
-		}
-		
+			} else {				
+			// SE AINDA NAO HOUVE MOVIMENTAÇÃO
+				if(viabilidade >= 4) {
+					acao = "COMPRA";
+				} else { acao = "N/A"; }
+			}
+			
 		return acao;
 	}
 	
@@ -188,23 +180,8 @@ public class Cliente implements Runnable {
 			}
 		}
 		
-		return 0;
+		return 5;
 	}
-	
-	// INICIA ACAO DE STOP LOSS DEVIDO DRAWDOWN
-/*	private void stopLoss (int i) throws InterruptedException {
-		
-		ArrayList<Ativos> ativosAtuais = minhaCorretora.consultaAtivos();
-		int ind = minhaCorretora.consultaAtivoAtual()-1;
-		
-		int qtde = minhaConta.getQtdeAcoes()[i];
-		
-		for(int i=0; i<5){
-			if(
-		}
-			
-		realizaSolicitacao("VENDA", ativosAtuais.get(i).getId(), qtde,10);
-	} */
 	
 	// METODO QUE REALIZA SOLICITAÇÃO DE COMPRA/VENDA DE ATIVOS
 	private void realizaSolicitacao(String tipoOp, char ativo, int qtdeAtivos, int prioridade) throws InterruptedException {
@@ -212,7 +189,7 @@ public class Cliente implements Runnable {
 		Thread.currentThread().setPriority(prioridade);
 
 		// somente faz movimentação na conta, se autorizado pela corretora
-		minhaCorretora.solicitacaoCliente (tipoOp, ativo, qtdeAtivos, this.id);
+		minhaCorretora.solicitacaoCliente(tipoOp, ativo, qtdeAtivos, this.id);
 		Thread.sleep(500);			// aguarda 500ms
 		
 		Thread.currentThread().setPriority(5);
@@ -222,4 +199,31 @@ public class Cliente implements Runnable {
 	public ContaCorrente getCC() {
 		return minhaConta;
 	}
+	
+	public static void extratoClientes() {
+		
+		for(int j = 0; j < Cliente.getListaClientes().size(); j++) {
+			
+			ArrayList<Operacao> operacoes = Cliente.getListaClientes().get(j).getCC().getMovimentacao();
+			int nCompra = 0, nVenda = 0; 
+			double totalCompra = 0, totalVenda = 0;
+
+			for(int i = 0; i < operacoes.size(); i++) {
+
+				if(operacoes.get(i).getTipoOperacao() == "COMPRA") {
+					totalCompra += operacoes.get(i).getValorTotal();
+					nCompra++;
+
+				} else if (operacoes.get(i).getTipoOperacao() == "VENDA"){
+					totalVenda += operacoes.get(i).getValorTotal();
+					nVenda++;
+				}
+			}
+			
+			System.out.println("CLIENTE: "+ (j+1)  + " realizou "+ nCompra+" compras de ativos no valor de "+totalCompra+ " reais. \n"
+					+ "e "+nVenda+ " vendas de ativos no valor de "+totalVenda+" reais");
+		}
+	}
+	
+	
 }
